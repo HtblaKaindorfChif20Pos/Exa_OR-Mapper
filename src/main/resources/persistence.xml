@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence-unit>
+    <properties>
+        <property name="driver" value="org.postgresql.Driver" /> <!-- DB Driver -->
+        <property name="url" value="jdbc:postgresql://localhost/testdb" /> <!-- BD Mane -->
+        <property name="user" value="postgres" /> <!-- DB User -->
+        <property name="password" value="geheim123" /> <!-- DB Password -->
+        <property name="ddl-schema" value="drop-and-create" /> <!-- create / create-drop / update -->
+    </properties>
+</persistence-unit>
