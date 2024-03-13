@@ -2,9 +2,11 @@ package at.kaindorf.ormapper.database;
 
 import at.kaindorf.ormapper.pojos.Persistence;
 
+import javax.print.DocFlavor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,6 +29,13 @@ public class SQLDataTypes {
       Map.entry(LocalTime.class, "TIME"),
       Map.entry(LocalDateTime.class, "TIMESTAMP"),
       Map.entry(String.class, "VARCHAR(255)")
+  );
+
+  public static final List<Class<?>> TYPES_WITH_TICKS = List.of(
+      String.class,
+      LocalDate.class,
+      LocalTime.class,
+      LocalDateTime.class
   );
 
 }

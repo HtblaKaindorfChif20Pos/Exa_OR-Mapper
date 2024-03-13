@@ -3,6 +3,9 @@ package at.kaindorf.ormapper.pojos;
 import at.kaindorf.ormapper.annotations.Column;
 import at.kaindorf.ormapper.annotations.Entity;
 import at.kaindorf.ormapper.annotations.Id;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
@@ -12,6 +15,9 @@ import java.time.LocalDate;
  * Date: 01.03.2024
  * Time: 09:08
  */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity(name = "airbus")
 public class Airplane {
 
