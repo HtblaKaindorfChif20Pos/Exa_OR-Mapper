@@ -198,7 +198,11 @@ public class EntityManager {
         50.6, 375,
         LocalDate.of(2018, Month.APRIL, 1));
     entityManager.persist(airplane);
-    Airplane airplaneFromDB = (Airplane)entityManager.findById(12L, Airplane.class);
+    try {
+      Airplane airplaneFromDB = (Airplane)entityManager.findById(12L, Airplane.class);
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
   }
 
 }
