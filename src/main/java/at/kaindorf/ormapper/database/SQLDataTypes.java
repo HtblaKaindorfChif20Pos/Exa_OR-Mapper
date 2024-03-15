@@ -38,4 +38,11 @@ public class SQLDataTypes {
       LocalDateTime.class
   );
 
+  public static final Map<Class<?>, Class<?>> TO_WRAPPER = Map.of(
+      boolean.class, Boolean.class,
+      int.class, Integer.class,
+      long.class, Long.class,
+      float.class, Float.class,
+      double.class, Double.class);
 }
+

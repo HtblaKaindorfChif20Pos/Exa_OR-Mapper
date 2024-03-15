@@ -7,7 +7,9 @@ import at.kaindorf.ormapper.io.IO_Access;
 import at.kaindorf.ormapper.pojos.Airplane;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -19,8 +21,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-import static at.kaindorf.ormapper.database.SQLDataTypes.SQL_TYPES;
-import static at.kaindorf.ormapper.database.SQLDataTypes.TYPES_WITH_TICKS;
+import static at.kaindorf.ormapper.database.SQLDataTypes.*;
 
 /**
  * Project: Exa_OR-Mapper_4CHIF
@@ -120,6 +121,8 @@ public class EntityManager {
    * INSERT INTO tablename (fieldname, ...) VALUES (fieldvalue, ...);
    */
   public void persist(Object entityObject) {
+    // How to get class-information:
+
     Class<?> entityClass = entityObject.getClass();
     // check if object is from supported entity-class:
     if (!entityClass.isAnnotationPresent(Entity.class)) {
@@ -130,18 +133,12 @@ public class EntityManager {
     List<String> fieldValues = new ArrayList<>();
 
     // ToDo generate content for fieldNames and fieldValues
-    fieldNames = Arrays.stream(entityClass.getDeclaredFields())
-        .map(field -> {
-          if (field.isAnnotationPresent(Column.class) &&
-              !field.getAnnotation(Column.class).name().isBlank()) {
-            return field.getAnnotation(Column.class).name();
-          }
-          return field.getName();
-        })
-        .map(String::toLowerCase)
-        .collect(Collectors.toList());
-
-    for(Field field : entityClass.getDeclaredFields()) {
+    for (Field field : entityClass.getDeclaredFields()) {
+      String fieldName = field.getName();
+      if (field.isAnnotationPresent(Column.class) && !field.getAnnotation(Column.class).name().isBlank()) {
+        fieldName = field.getAnnotation(Column.class).name();
+      }
+      fieldNames.add(fieldName);
       try {
         field.setAccessible(true);
         String fieldValue = field.get(entityObject).toString();
@@ -172,25 +169,118 @@ public class EntityManager {
 
   /**
    * get entity object from database by Id
+   *
    * @param entityClass
    * @return
    */
   public Object findById(Object primaryKey, Class<?> entityClass) throws SQLException {
     // ToDo Task 1: create SELECT statement: SELECT * FROM tableName WHERE pkField = ?
-    String sqlQuery = "";
+    // Done: get tablename
+    String tablename = getEntityTableName(entityClass);
+
+    // Done: get field for primary key
+    Field pkField = Arrays.stream(entityClass.getDeclaredFields())
+        .filter(field -> field.isAnnotationPresent(Id.class))
+        .findFirst()
+        .get();
+
+    // Done: check if datatype of primary key matches
+    boolean primaryKeyTypeMatch = pkField.getType().equals(primaryKey.getClass());
+    if (!primaryKeyTypeMatch) {
+      throw new RuntimeException("primary key type does not match database primary key");
+    }
+
+    // Done: setup sqlString for SELECT statement
+    String pkFieldName = pkField.getName();
+    if (pkField.isAnnotationPresent(Column.class) && !pkField.getAnnotation(Column.class).name().isBlank()) {
+      pkFieldName = pkField.getAnnotation(Column.class).name();
+    }
+
+    int value = 12;
+    switch (value) {
+      case 1:
+        value *= 2;
+        break;
+      case 2:
+        value *= 2;
+        break;
+      case 3:
+        value *= 2;
+        break;
+    }
+    String pkFieldValue = switch (primaryKey.getClass().getSimpleName()) {
+      case "String" -> String.format("'%s'", primaryKey);
+      case "LocalDate" -> String.format("TO_DATE('%s', 'YYYY-MM-DD')", primaryKey);
+      default -> String.format("%s", primaryKey);
+    };
+
+    String sqlQuery = String.format("SELECT * FROM %s WHERE %s = %s", tablename,
+        pkFieldName,
+        pkFieldValue);
+    System.out.println(sqlQuery);
+
+    // ToDo: fetch data from database
     ResultSet resultSet = statement.executeQuery(sqlQuery);
+    if (!resultSet.next()) {
+      throw new RuntimeException("No dataset found for pk: " + pkFieldValue);
+    }
 
-    // ToDo Task 2: create new entity-class-object
+    // Done: crete new object of entity-class-type
+    Object entityObject = null;
+    try {
+      Constructor constructor = entityClass.getConstructor();
+      entityObject = constructor.newInstance();
+    } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException | InstantiationException e) {
+      throw new RuntimeException("Object creation failed: " + e.getMessage());
+    }
+    // Done: fill entity-object with data from database table
+    for (Field field : entityClass.getDeclaredFields()) {
+      try {
+        field.setAccessible(true);
+        Class<?> fieldType = field.getType();
+        if (field.getType().isPrimitive()) {
+          fieldType = TO_WRAPPER.get(field.getType());
+        }
+        Object resultSetValue = resultSet.getObject(getFieldName(field), fieldType);
+        field.set(entityObject, resultSetValue);
+      } catch (SQLException | IllegalAccessException e) {
+        throw new RuntimeException("Setting values for entity object failed: " + e.getMessage());
+      }
+    }
+    return entityObject;
+  }
 
-    // ToDo Task 3: fill entity-class-object with values from resultset
+  /**
+   * merge entity object into database using SQL-update
+   *
+   * @param entityObject
+   */
+  public void merge(Object entityObject) {
 
-    return null;
+  }
+
+  /**
+   * delete entityObject from database if it exists
+   *
+   * @param entityObject
+   */
+  public void delete(Object entityObject) {
+
   }
 
   private String getEntityTableName(Class<?> entityClass) {
-    String entityName = entityClass.getAnnotation(Entity.class).name();
+    String entityName = entityClass.getAnnotation(Entity.class).name().toLowerCase();
     return entityName.isBlank() ? entityClass.getSimpleName().toLowerCase() : entityName;
   }
+
+  private String getFieldName(Field field) {
+    String fieldName = field.getName();
+    if (field.isAnnotationPresent(Column.class) && !field.getAnnotation(Column.class).name().isBlank()) {
+      fieldName = field.getAnnotation(Column.class).name();
+    }
+    return fieldName;
+  }
+
 
   public static void main(String[] args) {
     EntityManager entityManager = new EntityManager();
@@ -199,7 +289,8 @@ public class EntityManager {
         LocalDate.of(2018, Month.APRIL, 1));
     entityManager.persist(airplane);
     try {
-      Airplane airplaneFromDB = (Airplane)entityManager.findById(12L, Airplane.class);
+      Airplane airplaneFromDB = (Airplane) entityManager.findById(12L, Airplane.class);
+      System.out.println(airplaneFromDB);
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
